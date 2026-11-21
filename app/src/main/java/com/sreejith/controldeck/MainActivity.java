@@ -3,6 +3,7 @@ package com.sreejith.controldeck;
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.SharedPreferences;
+import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.os.Build;
 import android.os.Bundle;
@@ -43,6 +44,7 @@ public class MainActivity extends Activity {
     private TextView message;
     private String url = "";
     private volatile boolean captureVolume = true;
+    private MediaControls media;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
@@ -62,6 +64,22 @@ public class MainActivity extends Activity {
         root.addView(setup, new FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.MATCH_PARENT));
         setContentView(root);
         hideSystemUi();
+
+        if (Build.VERSION.SDK_INT >= 33
+                && checkSelfPermission("android.permission.POST_NOTIFICATIONS") != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(new String[]{"android.permission.POST_NOTIFICATIONS"}, 1);
+        }
+        media = new MediaControls(this, new MediaControls.Listener() {
+            @Override
+            public void onCommand(final String name) {
+                runOnUiThread(new Runnable() {
+                    @Override
+                    public void run() {
+                        web.evaluateJavascript("window.deckMedia && window.deckMedia('" + name + "')", null);
+                    }
+                });
+            }
+        });
 
         url = getSharedPreferences(PREFS, MODE_PRIVATE).getString(KEY_URL, "");
         if (url.length() == 0) {
@@ -248,6 +266,14 @@ public class MainActivity extends Activity {
     }
 
     @Override
+    protected void onDestroy() {
+        if (media != null) {
+            media.release();
+        }
+        super.onDestroy();
+    }
+
+    @Override
     @SuppressWarnings("deprecation")
     public void onBackPressed() {
         // Stay in the deck. Use the home button to leave.
@@ -268,6 +294,18 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void volumeKeys(boolean on) {
             captureVolume = on;
+        }
+
+        @JavascriptInterface
+        public void nowPlaying(final String title, final String artist, final boolean playing, final boolean on) {
+            runOnUiThread(new Runnable() {
+                @Override
+                public void run() {
+                    if (media != null) {
+                        media.update(title, artist, playing, on);
+                    }
+                }
+            });
         }
 
         @JavascriptInterface

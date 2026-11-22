@@ -1,0 +1,13 @@
+# Local settings and logs (deck_config.json contains the PIN)
+deck_config.json
+deck.log
+__pycache__/
+*.pyc
+
+# Android build output
+.gradle/
+build/
+app/build/
+local.properties
+*.apk
+.idea/
